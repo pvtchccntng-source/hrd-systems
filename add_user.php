@@ -2,9 +2,9 @@
 require_once 'db_config.php'; // $pdo is already initialized and ready to use
 
 // 1. Define the new user's credentials
-$new_username  = 'Daisy';
-$new_full_name = 'Daisy';
-$password_text = '1234'; // The plain text password
+$new_username  = 'Carl';
+$new_full_name = 'Carl Anthony';
+$password_text = 'p@ssw0rd'; // The plain text password
 
 // 2. Encrypt the password securely (PASSWORD_DEFAULT uses the strongest current algorithm)
 $secure_hash = password_hash($password_text, PASSWORD_DEFAULT);
