@@ -1,4 +1,6 @@
 <?php
+// Set the default timezone for all PHP operations in this script
+date_default_timezone_set('Asia/Manila');
 // Ensure no output happens before session_start()
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -22,7 +24,7 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
 // Securely reference the logged-in user throughout the session life cycle
 $current_user = $_SESSION['username'];
 
-// 🌟 PERFORMANCE FIX 1: Release the session file lock immediately!
+// ?? PERFORMANCE FIX 1: Release the session file lock immediately!
 // This stops simultaneous frontend 'fetch' polling requests from stalling your 'send' messages.
 session_write_close(); 
 
@@ -46,7 +48,7 @@ if ($action === 'fetch') {
         $seenStmt->execute(['username' => $current_user, 'last_id' => $max_id]);
     }
 
-    // 🌟 PERFORMANCE FIX 2: Optimized the LEFT JOIN. 
+    // ?? PERFORMANCE FIX 2: Optimized the LEFT JOIN. 
     // Removed the 'OR' condition matching full_name, which forced full table scans and dragged speeds down.
     $stmt = $pdo->query("SELECT m.*, 
                                 u.full_name AS sender_display_name,
@@ -107,7 +109,13 @@ if ($action === 'send' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $file_path = null;
     $file_type = null;
 
-    if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
+    if (isset($_FILES['attachment'])) {
+        // 1. Check for PHP upload errors first
+        if ($_FILES['attachment']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['success' => false, 'error' => 'PHP Upload Error Code: ' . $_FILES['attachment']['error']]);
+            exit;
+        }
+
         $upload_dir = 'uploads/';
         if (!is_dir($upload_dir)) {
             mkdir($upload_dir, 0755, true);
@@ -123,13 +131,18 @@ if ($action === 'send' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        // 2. Validate move_uploaded_file and report failure
         if (move_uploaded_file($_FILES['attachment']['tmp_name'], $target_file)) {
             $file_path = $target_file;
             $mime = $_FILES['attachment']['type'];
             $file_type = strpos($mime, 'image/') === 0 ? 'image' : 'document';
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Failed to move uploaded file. Check server permissions on the /uploads/ folder.']);
+            exit;
         }
     }
 
+    // Proceed with database insertion
     if (!empty($message) || $file_path !== null) {
         $stmt = $pdo->prepare("INSERT INTO chat_messages (sender, message, reply_to_id, file_path, file_type) VALUES (:sender, :message, :reply_to_id, :file_path, :file_type)");
         $stmt->execute([
@@ -145,7 +158,6 @@ if ($action === 'send' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     exit;
 }
-
 // ==========================================
 // 3. EDIT TEXT 
 // ==========================================
