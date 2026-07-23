@@ -384,7 +384,7 @@ $is_logged_in = isset($_SESSION['username']);
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Account Password</label>
-                            <input type="password" name="auth_password" required placeholder="••••••••" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 outline-none">
+                            <input type="password" name="auth_password" required placeholder="封封封封" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 outline-none">
                         </div>
                         <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-xl font-bold transition-all shadow-md flex items-center justify-center gap-1.5 mt-2">
                             <span>Access Terminal</span>
@@ -1172,7 +1172,6 @@ $is_logged_in = isset($_SESSION['username']);
         }
 </script>
 
-
 <script src="chat-state.js"></script>
 <script src="chat-ui.js"></script>
 <script src="chat-mention.js"></script>
@@ -1185,8 +1184,15 @@ $is_logged_in = isset($_SESSION['username']);
     document.addEventListener('DOMContentLoaded', () => {
         lucide.createIcons();
         if (window.currentUser) {
-            window.syncChatWire();
-            window.chatPollTimer = setInterval(window.syncChatWire, 2000);
+            
+            // Replaced setInterval with a smarter recursive polling function
+            window.startSmartPolling = async () => {
+                await window.syncChatWire(); // Wait for the fetch to finish
+                window.chatPollTimer = setTimeout(window.startSmartPolling, 2000); // Only then wait 2s to fire again
+            };
+            
+            // Initiate the loop
+            window.startSmartPolling();
             
             window.downloadSystemWorkspaceDirectory();
             window.createAutocompleteContainerPanel();
