@@ -1,4 +1,48 @@
 // =============================================================
+// HELPER FUNCTIONS
+// =============================================================
+function formatSmartChatTime(dbTimestamp) {
+    // Convert the database timestamp string into a JavaScript Date object
+    const date = new Date(dbTimestamp);
+    const now = new Date();
+
+    // Check if the message is from today
+    const isToday = date.getDate() === now.getDate() && 
+                    date.getMonth() === now.getMonth() && 
+                    date.getFullYear() === now.getFullYear();
+    
+    // Create a date object for exactly yesterday
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    
+    // Check if the message is from yesterday
+    const isYesterday = date.getDate() === yesterday.getDate() && 
+                        date.getMonth() === yesterday.getMonth() && 
+                        date.getFullYear() === yesterday.getFullYear();
+
+    // Format the time part (e.g., "03:15 PM")
+    const timeString = date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+
+    // Return the smart string
+    if (isToday) {
+        return timeString; 
+    } else if (isYesterday) {
+        return "Yesterday at " + timeString;
+    } else {
+        // For older messages: "Jul 18 at 03:15 PM"
+        const dateString = date.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric' 
+        });
+        return dateString + " at " + timeString;
+    }
+}
+
+
+// =============================================================
 // VIEWPORT PANELS & UI INTERACTION CONTROLLERS
 // =============================================================
 window.toggleChatSystem = function() {
@@ -37,31 +81,43 @@ window.toggleProfileSettings = function() {
     }
 };
 
+// Handles showing the preview bar when a user selects a file
 window.handleFileSelectionEvent = function(input) {
-    if (!window.currentUser) return;
-    if (window.currentEditMessageId) window.cancelEditingState();
-    const file = input.files[0];
-    if (!file) return;
+    const previewBar = document.getElementById('attachment-preview-bar');
+    const fileNameDisplay = document.getElementById('preview-file-name');
+    const fileIcon = document.getElementById('preview-file-icon');
 
-    document.getElementById('preview-file-name').innerText = file.name;
-    const iconElement = document.getElementById('preview-file-icon');
-    if (file.type.startsWith('image/')) {
-        iconElement.setAttribute('data-lucide', 'image');
-    } else {
-        iconElement.setAttribute('data-lucide', 'file-text');
+    if (input.files && input.files.length > 0) {
+        const file = input.files[0];
+        
+        // Update the text to the file's name
+        fileNameDisplay.textContent = file.name;
+        
+        // Optionally change the icon based on file type
+        if (file.type.startsWith('image/')) {
+            fileIcon.setAttribute('data-lucide', 'image');
+        } else {
+            fileIcon.setAttribute('data-lucide', 'file-text');
+        }
+        
+        // Re-render lucide icons to apply the change
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+        
+        // Reveal the preview bar
+        previewBar.classList.remove('hidden');
     }
-    lucide.createIcons();
-    document.getElementById('attachment-preview-bar').classList.remove('hidden');
-    document.getElementById('chat-input-field').removeAttribute('required');
 };
 
+// Clears the selected file if the user cancels or submits
 window.clearSelectedAttachment = function() {
-    if (!window.currentUser) return;
-    document.getElementById('chat-file-input').value = "";
-    document.getElementById('attachment-preview-bar').classList.add('hidden');
-    document.getElementById('chat-input-field').setAttribute('required', 'true');
+    const input = document.getElementById('chat-file-input');
+    const previewBar = document.getElementById('attachment-preview-bar');
+    
+    input.value = ''; // Clear the actual input
+    previewBar.classList.add('hidden'); // Hide the UI bar
 };
-
 window.toggleGifPicker = function() {
     if (!window.currentUser) return;
     const pickerPanel = document.getElementById('gif-picker-panel');
