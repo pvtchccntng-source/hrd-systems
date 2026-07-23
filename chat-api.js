@@ -8,13 +8,20 @@ window.optimisticMessages = window.optimisticMessages || [];
 window.syncChatWire = async function() {
     if (!window.currentUser) return;
     
-    // 🌟 BUG FIX 1: Generate a unique Request ID for this specific fetch cycle
+    // ?? BUG FIX 1: Generate a unique Request ID for this specific fetch cycle
     window.currentSyncRequestId = (window.currentSyncRequestId || 0) + 1;
     const mySyncRequestId = window.currentSyncRequestId;
 
+    // ?? NEW FIX: Abort the previous lingering fetch request to free up network sockets
+    if (window.syncAbortController) {
+        window.syncAbortController.abort();
+    }
+    window.syncAbortController = new AbortController();
+
     try {
         const response = await fetch(`chat_handler.php?action=fetch&username=${encodeURIComponent(window.currentUser)}&is_open=${window.isChatOpen ? 1 : 0}`, {
-            credentials: 'same-origin'
+            credentials: 'same-origin',
+            signal: window.syncAbortController.signal // <--- Attach the abort signal here
         });
         
         if (response.status === 401) {
@@ -25,8 +32,7 @@ window.syncChatWire = async function() {
         if (!response.ok) throw new Error(`HTTP network anomaly: ${response.status}`);
         const data = await response.json();
         
-        // 🌟 BUG FIX 2: If a newer fetch started while this one was waiting for the server,
-        // immediately discard this stale response so it doesn't wipe the screen clean.
+        // ?? BUG FIX 2: If a newer fetch started...
         if (window.currentSyncRequestId !== mySyncRequestId) {
             return; 
         }
@@ -61,7 +67,13 @@ window.syncChatWire = async function() {
                     window.highestMessageIdAlerted = msgIdInt;
                 }
 
-                const timestamp = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const timestamp = new Date(msg.created_at).toLocaleString([], { 
+    month: 'short', 
+    day: 'numeric', 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: true 
+});
                 const editedLabel = parseInt(msg.is_edited) ? ' <span class="text-[9px] opacity-60">(edited)</span>' : '';
 
                 const msgElement = document.createElement('div');
@@ -170,11 +182,11 @@ if (gifMatch) {
                                 <span class="text-[9px] text-right mt-1 opacity-70 block">${timestamp}${editedLabel}</span>
                             </div>
                             <div class="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all duration-150 bg-white border border-slate-200 rounded-xl p-1 shadow-md absolute -top-8 ${isMe ? 'right-2' : 'left-2'} z-10">
-                                <button onclick="window.sendReaction(${msg.id}, '👍')" class="hover:scale-130 active:scale-95 transition-transform px-0.5 text-sm">👍</button>
-                                <button onclick="window.sendReaction(${msg.id}, '❤️')" class="hover:scale-130 active:scale-95 transition-transform px-0.5 text-sm">❤️</button>
-                                <button onclick="window.sendReaction(${msg.id}, '😂')" class="hover:scale-130 active:scale-95 transition-transform px-0.5 text-sm">😂</button>
-                                <button onclick="window.sendReaction(${msg.id}, '😮')" class="hover:scale-130 active:scale-95 transition-transform px-0.5 text-sm">😮</button>
-                                <button onclick="window.sendReaction(${msg.id}, '😢')" class="hover:scale-130 active:scale-95 transition-transform px-0.5 text-sm">😢</button>
+                                <button onclick="window.sendReaction(${msg.id}, '??')" class="hover:scale-130 active:scale-95 transition-transform px-0.5 text-sm">??</button>
+                                <button onclick="window.sendReaction(${msg.id}, '??')" class="hover:scale-130 active:scale-95 transition-transform px-0.5 text-sm">??</button>
+                                <button onclick="window.sendReaction(${msg.id}, '??')" class="hover:scale-130 active:scale-95 transition-transform px-0.5 text-sm">??</button>
+                                <button onclick="window.sendReaction(${msg.id}, '??')" class="hover:scale-130 active:scale-95 transition-transform px-0.5 text-sm">??</button>
+                                <button onclick="window.sendReaction(${msg.id}, '??')" class="hover:scale-130 active:scale-95 transition-transform px-0.5 text-sm">??</button>
                                 <div class="w-px h-3 bg-slate-200 mx-1"></div>
                                 <button onclick="window.initiateReplyMode(${msg.id}, this)" title="Reply" class="p-1 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors">
                                     <i data-lucide="reply" class="w-3 h-3"></i>
@@ -198,7 +210,7 @@ if (gifMatch) {
                 container.appendChild(msgElement);
             });
 
-            // 🌟 OPTIMISTIC UI FIX: Append any active local "sending..." elements right here 
+            // ?? OPTIMISTIC UI FIX: Append any active local "sending..." elements right here 
             // so they don't disappear when the background polling loop clears the container.
             if (window.optimisticMessages && window.optimisticMessages.length > 0) {
                 window.optimisticMessages.forEach((optMsg) => {
@@ -233,17 +245,26 @@ if (gifMatch) {
             }
             window.totalMessagesCached = data.messages.length;
         }
-    } catch (err) {
+} catch (err) {
+        if (err.name === 'AbortError') {
+            return; // Silently ignore requests that we intentionally cancelled
+        }
         console.error("Stream sync error:", err);
     }
 };
 
-// 🌟 OPTIMISTIC UI HELPER: Generates the DOM representation for instant client display
+// ?? OPTIMISTIC UI HELPER: Generates the DOM representation for instant client display
 window.appendOptimisticUIToContainer = function(msg) {
     const container = document.getElementById('chat-messages-container');
     if (!container) return;
 
-    const timestamp = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const timestamp = new Date(msg.created_at).toLocaleString([], { 
+    month: 'short', 
+    day: 'numeric', 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: true 
+});
     const msgElement = document.createElement('div');
     msgElement.classList.add('flex', 'flex-col', 'w-full', 'optimistic-sending-node');
 
@@ -467,7 +488,7 @@ window.dispatchChatMessage = async function(event) {
     // Guard to ensure we aren't dispatching completely empty payloads
     if (!msgText && fileInput.files.length === 0) return;
 
-    // 🌟 1. OPTIMISTIC UPDATE: Generate tracking details for instant layout rendering
+    // ?? 1. OPTIMISTIC UPDATE: Generate tracking details for instant layout rendering
     const tempMessageId = 'temp_' + Date.now();
     let localBlobPath = null;
     let localBlobType = null;
@@ -498,10 +519,11 @@ window.dispatchChatMessage = async function(event) {
     if (window.currentReplyMessageId) formDataPayload.append('reply_to_id', window.currentReplyMessageId);
     if (fileInput.files.length > 0) formDataPayload.append('attachment', fileInput.files[0]);
 
-    // 🌟 2. INSTANT RESPONSIVENESS: Clear UI form inputs immediately without waiting
+    // ?? 2. INSTANT RESPONSIVENESS: Clear UI text inputs immediately without waiting
     input.value = "";
     if (window.currentReplyMessageId) window.cancelReplyState();
-    window.clearSelectedAttachment();
+    
+    // ?? DO NOT clear the file attachment here! It breaks the fetch stream.
 
     // Print to the screen instantly and focus scrollbar directly down
     window.appendOptimisticUIToContainer(temporaryPayloadNode);
@@ -513,21 +535,35 @@ window.dispatchChatMessage = async function(event) {
             body: formDataPayload,
             credentials: 'same-origin'
         });
+
+        // ?? FIX: Clear the file input ONLY AFTER the network request has processed it
+        window.clearSelectedAttachment();
+
         if (response.status === 401) { window.handleSessionExpired(); return; }
+        
         if (response.ok) {
             const data = await response.json();
             
-            // 🌟 3. CLEAN UP TRACKING NODE: Remove temporary entry once DB confirms receipt
+            // ?? 3. CLEAN UP TRACKING NODE: Remove temporary entry once DB confirms receipt
             if (data.success) {
                 window.optimisticMessages = window.optimisticMessages.filter(m => m.id !== tempMessageId);
                 window.syncChatWire();
+            } else {
+                // ?? FIX: Clear the temporary message if the server rejects it (e.g., file too large)
+                window.optimisticMessages = window.optimisticMessages.filter(m => m.id !== tempMessageId);
+                window.syncChatWire();
+                window.triggerToastAlert(data.error || "Failed to send file.", true);
             }
+        } else {
+            throw new Error(`Server returned ${response.status}`);
         }
     } catch (err) { 
         console.error("Message dispatch error:", err);
+        // Ensure UI clears even on failure
+        window.clearSelectedAttachment(); 
         // Clean up tracking node if delivery fails completely
         window.optimisticMessages = window.optimisticMessages.filter(m => m.id !== tempMessageId);
         window.syncChatWire();
         window.triggerToastAlert("Message delivery failed. Please check your connection.", true);
-    }
+    } 
 };
