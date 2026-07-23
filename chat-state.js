@@ -9,6 +9,7 @@ window.totalMessagesCached = 0;
 window.currentEditMessageId = null;
 window.currentReplyMessageId = null;
 window.highestMessageIdAlerted = 0;
+window.syncAbortController = null;
 
 // @MENTION SYSTEM TRACKING STATES
 window.appCachedUsers = [];
@@ -61,10 +62,10 @@ window.handleSessionExpired = function() {
         window.chatPollTimer = null;
     }
     
-    // 🌟 Notify the user on screen
+    // ?? Notify the user on screen
     window.triggerToastAlert("Session expired! Reloading login terminal...", true);
     
-    // 🌟 Refresh index.php automatically after 2 seconds
+    // ?? Refresh index.php automatically after 2 seconds
     setTimeout(() => {
         window.location.reload();
     }, 2000);
